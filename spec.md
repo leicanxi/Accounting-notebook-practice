@@ -1,4 +1,4 @@
-# 糖豆人记账游戏 (SugarRunner Expense) - 技术设计文档
+d# 糖豆人记账游戏 (SugarRunner Expense) - 技术设计文档
 
 ---
 

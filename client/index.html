@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>糖豆人记账游戏 - SugarRunner Expense</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 窗口过小提示 -->
+  <div id="size-warning">窗口过小，可能影响使用体验</div>
+
+  <!-- 过渡动画层 -->
+  <div id="transition-overlay">
+    <img src="assets/sugar_runner.svg" alt="糖豆人" id="transition-mascot">
+  </div>
+
+  <!-- 登录容器 -->
+  <div id="login-container" style="display:none;">
+    <div class="login-card" id="auth-form"></div>
+  </div>
+
+  <!-- 游戏容器 -->
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 配置面板 -->
+    <div id="config-panel"></div>
+
+    <!-- 侧边面板 -->
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <h2>糖豆人记账本</h2>
+        <button class="close-btn" id="sidebar-close">✕</button>
+      </div>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" data-tab="bills">账单</button>
+        <button class="sidebar-tab" data-tab="stats">统计</button>
+        <button class="sidebar-tab" data-tab="settings">设置</button>
+      </div>
+      <div class="sidebar-content" id="sidebar-content">
+        <!-- 动态渲染 -->
+      </div>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div id="edit-modal">
+      <div class="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- JS 脚本 -->
+  <script src="js/utils/validators.js"></script>
+  <script src="js/utils/currency.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/pages/login.js"></script>
+  <script src="js/game/loop.js"></script>
+  <script src="js/game/character.js"></script>
+  <script src="js/game/ball.js"></script>
+  <script src="js/game/panel.js"></script>
+  <script src="js/game/animation.js"></script>
+  <script src="js/game/spawner.js"></script>
+  <script src="js/pages/game.js"></script>
+  <script src="js/sidebar/sidebar.js"></script>
+  <script src="js/sidebar/bills.js"></script>
+  <script src="js/sidebar/stats.js"></script>
+  <script src="js/sidebar/settings.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- Canvas 无脚本降级隐藏 -->
+</body>
+</html>

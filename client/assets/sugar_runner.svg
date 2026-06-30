@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" width="160" height="200">
+  <!-- 糖豆人身体（椭圆豆子形状） -->
+  <ellipse cx="80" cy="115" rx="55" ry="65" fill="#FF6B6B" stroke="#E55A5A" stroke-width="3"/>
+  
+  <!-- 身体高光 -->
+  <ellipse cx="65" cy="95" rx="20" ry="30" fill="#FF8E8E" opacity="0.5"/>
+  
+  <!-- 左脚 -->
+  <ellipse cx="58" cy="172" rx="18" ry="10" fill="#FF6B6B" stroke="#E55A5A" stroke-width="2"/>
+  <!-- 右脚 -->
+  <ellipse cx="102" cy="172" rx="18" ry="10" fill="#FF6B6B" stroke="#E55A5A" stroke-width="2"/>
+  
+  <!-- 左眼（圆形白色+黑色瞳孔） -->
+  <circle cx="62" cy="100" r="12" fill="white"/>
+  <circle cx="66" cy="100" r="6" fill="#333"/>
+  <circle cx="68" cy="98" r="2" fill="white"/>
+  
+  <!-- 右眼 -->
+  <circle cx="98" cy="100" r="12" fill="white"/>
+  <circle cx="102" cy="100" r="6" fill="#333"/>
+  <circle cx="104" cy="98" r="2" fill="white"/>
+  
+  <!-- 默认嘴巴（微笑） -->
+  <path d="M65 118 Q80 135 95 118" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- 头顶小天线 -->
+  <line x1="80" y1="52" x2="80" y2="35" stroke="#E55A5A" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="80" cy="32" r="5" fill="#FFD43B"/>
+</svg>
