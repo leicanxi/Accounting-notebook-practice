@@ -4,7 +4,7 @@ function renderAuthPage() {
   const container = document.getElementById('auth-form');
   const mode = getCurrentAuthMode();
 
-  let html = '<img src="assets/sugar_runner.svg" class="login-mascot" alt="糖豆人">';
+  let html = '';
 
   if (mode === 'login') {
     html += renderLoginForm();
@@ -33,8 +33,8 @@ function getCurrentAuthMode() {
 
 function renderLoginForm() {
   return `
-    <h1>糖豆人记账</h1>
-    <p class="subtitle">把记账变成一场甜蜜的游戏</p>
+    <h1>吃豆人记账</h1>
+    <p class="subtitle">像吃豆人一样吃掉每一笔开销</p>
     <div class="tabs">
       <button class="tab-btn active" data-mode="login">密码登录</button>
       <button class="tab-btn" data-mode="captcha-login">验证码登录</button>
@@ -56,8 +56,8 @@ function renderLoginForm() {
 
 function renderCaptchaLoginForm() {
   return `
-    <h1>糖豆人记账</h1>
-    <p class="subtitle">把记账变成一场甜蜜的游戏</p>
+    <h1>吃豆人记账</h1>
+    <p class="subtitle">像吃豆人一样吃掉每一笔开销</p>
     <div class="tabs">
       <button class="tab-btn" data-mode="login">密码登录</button>
       <button class="tab-btn active" data-mode="captcha-login">验证码登录</button>

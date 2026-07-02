@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人记账本 · 原型</title>
+<style>
+/* ============================================================
+   1. RESET & VARIABLES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:             #FAF7F3;
+  --surface:        #F4F0EA;
+  --surface-alt:    #EDE9E1;
+  --fg:             #2C2723;
+  --fg-secondary:   #6B6661;
+  --fg-tertiary:    #9F9A94;
+  --border:         #E7E2DA;
+  --border-light:   #F0EBE4;
+  --accent:         #C2854F;
+  --accent-subtle:  #F5EDE5;
+  --danger-subtle:  #F4EDEC;
+  --danger-text:    #B55A4E;
+
+  --font-display: 'Iowan Old Style', 'Charter', 'Georgia', 'Times New Roman', 'STSong', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --phone-w: 390px;
+  --phone-h: 720px;
+}
+
+/* ============================================================
+   2. BASE
+   ============================================================ */
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  min-height: 100dvh;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ============================================================
+   3. PAGE LAYOUT
+   ============================================================ */
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px 60px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+.page-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  line-height: 1.2;
+}
+.page-header p {
+  font-size: 14px;
+  color: var(--fg-tertiary);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+
+.layout {
+  display: flex;
+  gap: 64px;
+  align-items: flex-start;
+  justify-content: center;
+  max-width: 960px;
+  width: 100%;
+}
+
+/* ============================================================
+   4. PHONE FRAME
+   ============================================================ */
+.phone-frame {
+  width: var(--phone-w);
+  height: var(--phone-h);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: #FCFAF7;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+.phone-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.phone-screen::-webkit-scrollbar { display: none; }
+.phone-screen.active { display: flex; }
+
+/* ============================================================
+   5. SIDEBAR INFO
+   ============================================================ */
+.screen-info {
+  min-width: 200px;
+  max-width: 240px;
+  padding-top: 60px;
+}
+.screen-info .screen-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+}
+.screen-info .screen-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.2;
+  margin: 8px 0 12px;
+  letter-spacing: -0.01em;
+}
+.screen-info .screen-desc {
+  font-size: 13px;
+  color: var(--fg-secondary);
+  line-height: 1.7;
+}
+.screen-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 28px;
+}
+.screen-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.screen-dot.active {
+  background: var(--fg);
+}
+
+/* ============================================================
+   6. SHARED COMPONENTS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-family: var(--font-body);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.btn-primary {
+  background: var(--fg);
+  color: #FAF8F5;
+}
+.btn-primary:hover { background: #3D3833; }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { border-color: var(--fg-secondary); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+  padding: 8px 16px;
+}
+.btn-ghost:hover { color: var(--fg); }
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-accent:hover { background: #B07643; }
+
+.btn-sm { padding: 8px 18px; font-size: 13px; }
+.btn-block { width: 100%; }
+
+/* Input fields */
+.input-group { margin-bottom: 16px; }
+.input-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--fg-tertiary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.input {
+  width: 100%;
+  padding: 12px 0;
+  font-size: 15px;
+  font-family: var(--font-body);
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  outline: none;
+  transition: border-color 0.2s;
+  border-radius: 0;
+}
+.input:focus { border-bottom-color: var(--fg-secondary); }
+.input::placeholder { color: var(--fg-tertiary); }
+
+/* Pills / Tags */
+.pill {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  color: var(--fg-secondary);
+}
+.pill.selected {
+  background: var(--fg);
+  color: #FAF8F5;
+  border-color: var(--fg);
+}
+.pill:hover:not(.selected) {
+  border-color: var(--fg-secondary);
+}
+
+/* ============================================================
+   7. SCREEN: LOGIN (1)
+   ============================================================ */
+.login-screen { padding: 60px 32px 40px; }
+.login-logo {
+  font-family: var(--font-display);
+  font-size: 32px;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.login-tagline {
+  font-size: 14px;
+  color: var(--fg-tertiary);
+  letter-spacing: 0.04em;
+  margin-bottom: 56px;
+}
+.login-form { display: flex; flex-direction: column; gap: 4px; }
+.login-switch-link {
+  justify-content: flex-start;
+  padding: 6px 0 0;
+  font-size: 12px;
+  color: var(--fg-tertiary);
+}
+.login-switch-link:hover {
+  color: var(--fg);
+}
+.auth-helper {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--fg-tertiary);
+}
+.login-form .code-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+.login-form .code-row .input-group { flex: 1; }
+.login-form .btn-primary { margin-top: 32px; }
+
+/* ============================================================
+   8. SCREEN: DASHBOARD (2)
+   ============================================================ */
+.dash-screen { padding: 0; }
+.dash-top {
+  padding: 28px 24px 0;
+}
+.month-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.month-switcher button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-family: var(--font-body);
+}
+.month-switcher button:hover { color: var(--fg); }
+.month-label {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+/* Summary cards */
+.summary-row {
+  display: flex;
+  gap: 1px;
+  background: var(--border-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.summary-item {
+  flex: 1;
+  background: var(--surface);
+  padding: 16px 14px;
+  text-align: center;
+}
+.summary-item .s-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+}
+.summary-item .s-value {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.summary-item.balance { background: var(--surface-alt); }
+.summary-item .s-value.positive { color: #5B8A5E; }
+
+/* Category chart */
+.cat-section {
+  padding: 0 24px;
+  margin-bottom: 24px;
+}
+.cat-section .section-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.cat-bar-bg {
+  flex: 1;
+  height: 3px;
+  background: var(--border-light);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cat-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.cat-name {
+  width: 36px;
+  font-size: 12px;
+  color: var(--fg-secondary);
+  letter-spacing: 0.02em;
+  text-align: right;
+  flex-shrink: 0;
+}
+.cat-amount {
+  width: 60px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.cat-pct {
+  width: 36px;
+  font-size: 11px;
+  color: var(--fg-tertiary);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Transaction list */
+.tx-section {
+  padding: 0 24px 100px;
+}
+.tx-section .section-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.tx-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-light);
+  gap: 12px;
+}
+.tx-item:last-child { border-bottom: none; }
+.tx-cat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.tx-info { flex: 1; min-width: 0; }
+.tx-info .tx-title { font-size: 14px; color: var(--fg); }
+.tx-info .tx-meta { font-size: 11px; color: var(--fg-tertiary); margin-top: 1px; }
+.tx-amount {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.tx-amount.expense { color: var(--fg); }
+.tx-amount.income { color: #5B8A5E; }
+
+/* FAB */
+.fab {
+  position: absolute;
+  bottom: 28px;
+  right: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--fg);
+  color: #FAF8F5;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+.fab:hover { transform: scale(1.05); }
+.fab:active { transform: scale(0.95); }
+
+/* ============================================================
+   9. SCREEN: QUICK ADD (3)
+   ============================================================ */
+.quickadd-screen { padding: 40px 24px 32px; }
+.qa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.qa-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.qa-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  padding: 4px;
+}
+.qa-type-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.qa-type-btn {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-secondary);
+  font-family: var(--font-body);
+  transition: all 0.15s;
+}
+.qa-type-btn.active {
+  background: var(--fg);
+  color: #FAF8F5;
+}
+.qa-amount {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  color: var(--fg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 0;
+  width: 100%;
+  outline: none;
+  background: transparent;
+  margin-bottom: 24px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.qa-amount::placeholder { color: var(--fg-tertiary); }
+.qa-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.qa-ai-row {
+  margin: 10px 0 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.34);
+}
+.qa-ai-row .input-label {
+  margin-bottom: 8px;
+}
+.qa-ai-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+}
+.qa-ai-input::placeholder {
+  color: var(--fg-tertiary);
+}
+.qa-ai-helper {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--fg-tertiary);
+  line-height: 1.6;
+}
+.qa-field {
+  margin-bottom: 18px;
+}
+.qa-field .input {
+  font-size: 14px;
+  padding: 10px 0;
+}
+.qa-field-helper {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-tertiary);
+}
+.qa-submit { margin-top: 12px; }
+
+/* ============================================================
+   10. SCREEN: TRANSACTION DEMO (4)
+   ============================================================ */
+.demo-screen { padding: 36px 24px 40px; }
+.demo-header {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.demo-hint {
+  font-size: 12px;
+  color: var(--fg-tertiary);
+  letter-spacing: 0.04em;
+  margin-bottom: 24px;
+}
+.tx-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+}
+.tx-swipe-bg {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: var(--danger-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--danger-text);
+  letter-spacing: 0.04em;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.tx-swipe-content {
+  position: relative;
+  background: #FCFAF7;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-light);
+  transition: transform 0.2s ease;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tx-swipe-content:active { cursor: grabbing; }
+
+.longpress-area {
+  position: relative;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+.longpress-area.pressed { background: var(--surface-alt); }
+.edit-overlay {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 14px;
+  background: var(--fg);
+  color: #FAF8F5;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  display: none;
+}
+.longpress-area.pressed .edit-overlay { display: block; }
+.demo-separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 28px 0 20px;
+}
+.demo-label-row {
+  display: flex;
+  gap: 28px;
+  margin-top: 8px;
+}
+.demo-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg-secondary);
+  letter-spacing: 0.03em;
+}
+.demo-label .dl-icon {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--fg-tertiary);
+}
+
+/* ============================================================
+   11. SCREEN: SETTINGS (5)
+   ============================================================ */
+.settings-screen { padding: 36px 24px 40px; }
+.settings-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  margin-bottom: 28px;
+}
+.setting-group { margin-bottom: 28px; }
+.setting-group-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+}
+.setting-item:last-child { border-bottom: none; }
+.setting-item .si-left { font-size: 14px; color: var(--fg); }
+.setting-item .si-right {
+  font-size: 13px;
+  color: var(--fg-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.setting-item .si-arrow {
+  color: var(--fg-tertiary);
+  font-size: 14px;
+}
+.cat-mgmt-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cat-mgmt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--fg-secondary);
+  letter-spacing: 0.02em;
+}
+.cat-mgmt-pill .cat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.danger-zone {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.danger-zone .setting-item .si-left {
+  color: var(--danger-text);
+}
+
+/* Currency select */
+.currency-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.cur-opt {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--fg-secondary);
+  background: transparent;
+  font-family: var(--font-body);
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+}
+.cur-opt.selected {
+  background: var(--fg);
+  color: #FAF8F5;
+  border-color: var(--fg);
+}
+
+/* ============================================================
+   12. SCREEN: DELETE CONFIRM (6)
+   ============================================================ */
+.confirm-screen { padding: 48px 28px 40px; align-items: center; justify-content: center; text-align: center; }
+.confirm-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 22px;
+  color: var(--fg-tertiary);
+}
+.confirm-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+}
+.confirm-desc {
+  font-size: 13px;
+  color: var(--fg-secondary);
+  line-height: 1.7;
+  max-width: 260px;
+  margin: 0 auto 32px;
+}
+.confirm-desc strong { color: var(--fg); font-weight: 520; }
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 260px;
+  margin: 0 auto;
+  align-items: center;
+}
+.confirm-actions .btn {
+  width: 100%;
+}
+
+/* ============================================================
+   13. SCREEN: EMPTY STATE (7)
+   ============================================================ */
+.empty-screen { padding: 100px 32px 40px; align-items: center; text-align: center; }
+.empty-visual {
+  width: 80px;
+  height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 28px;
+  font-size: 28px;
+  color: var(--fg-tertiary);
+}
+.empty-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
+.empty-desc {
+  font-size: 13px;
+  color: var(--fg-secondary);
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+
+/* ============================================================
+   14. SCREEN: NO-DATA MONTH (8)
+   ============================================================ */
+.nodata-screen { padding: 36px 24px 40px; }
+.nodata-month {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.nodata-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 60px;
+}
+.nodata-visual {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 22px;
+  color: var(--fg-tertiary);
+}
+.nodata-title {
+  font-size: 15px;
+  color: var(--fg-secondary);
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+.nodata-desc {
+  font-size: 12px;
+  color: var(--fg-tertiary);
+  letter-spacing: 0.03em;
+}
+
+/* ============================================================
+   15. DASHBOARD OVERLAYS
+   ============================================================ */
+.dash-overlay {
+  position: absolute;
+  inset: 0;
+  background: #FAF7F3;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.dash-overlay.show { display: flex; }
+
+/* ============================================================
+   16. NAVIGATION (bottom of page)
+   ============================================================ */
+.page-nav {
+  display: flex;
+  gap: 24px;
+  margin-top: 36px;
+  align-items: center;
+}
+.page-nav .nav-hint {
+  font-size: 11px;
+  color: var(--fg-tertiary);
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   17. RESPONSIVE
+   ============================================================ */
+@media (max-width: 800px) {
+  .layout { flex-direction: column; align-items: center; gap: 24px; }
+  .screen-info {
+    min-width: unset;
+    max-width: var(--phone-w);
+    width: 100%;
+    padding-top: 0;
+    text-align: center;
+  }
+  .screen-info .screen-title { font-size: 22px; }
+  .screen-dots { justify-content: center; }
+  .phone-frame {
+    width: min(var(--phone-w), calc(100vw - 32px));
+    height: calc(min(var(--phone-w), calc(100vw - 32px)) * 1.85);
+  }
+  .page-nav { flex-direction: column; gap: 8px; }
+}
+
+/* ============================================================
+   18. CATEGORY COLOR BAR FILLS (inline)
+   ============================================================ */
+.cat-food      { background: #D0C5B8; }
+.cat-transport { background: #C2BFB8; }
+.cat-shopping  { background: #CEC4BE; }
+.cat-entertain { background: #C6C3CF; }
+.cat-housing   { background: #C0B7AD; }
+.cat-income    { background: #BBC7B7; }
+
+.tx-icon-food      { background: #F2EBE2; color: #9B8B7A; }
+.tx-icon-transport { background: #F0EDE8; color: #8B8680; }
+.tx-icon-shopping  { background: #F2EBE6; color: #9B8A82; }
+.tx-icon-entertain { background: #EFEDF3; color: #7D7A8A; }
+.tx-icon-housing   { background: #F0EBE4; color: #8B8276; }
+.tx-icon-income    { background: #ECF2E9; color: #6B8A6A; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-header">
+    <h1>个人记账本</h1>
+    <p>Personal Ledger &middot; Product Prototype</p>
+  </header>
+
+  <div class="layout">
+    <!-- PHONE FRAME -->
+    <div class="phone-frame" id="phoneFrame">
+
+      <!-- SCREEN 1: LOGIN -->
+      <div class="phone-screen active" data-screen="1">
+        <div class="login-screen">
+          <div class="login-logo">个人记账本</div>
+          <div class="login-tagline">每一笔，都算数</div>
+          <div class="login-form">
+            <div class="input-group">
+              <label class="input-label">邮箱</label>
+              <input class="input" type="email" placeholder="your@email.com" value="hi@example.com">
+            </div>
+            <div class="code-row">
+              <div class="input-group">
+                <label class="input-label" id="loginCredentialLabel">验证码</label>
+                <input class="input" id="loginCredentialInput" type="text" placeholder="6 位数字" maxlength="6">
+              </div>
+              <button class="btn btn-outline btn-sm" id="sendCodeBtn" style="margin-bottom:16px;white-space:nowrap;" onclick="this.textContent='已发送 (60s)';setTimeout(()=>this.textContent='发送验证码',60000)">发送验证码</button>
+            </div>
+            <button class="btn btn-ghost login-switch-link" id="loginModeSwitch" type="button" onclick="toggleLoginMode()">密码登录</button>
+            <button class="btn btn-primary btn-block" style="margin-top:36px;">开始使用</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 2: DASHBOARD -->
+      <div class="phone-screen" data-screen="2" id="dashScreen">
+        <div class="dash-screen">
+          <div class="dash-top">
+            <div class="month-switcher">
+              <button onclick="prevMonth()">&larr;</button>
+              <span class="month-label" id="monthLabel">2024年7月</span>
+              <button onclick="nextMonth()">&rarr;</button>
+            </div>
+            <div class="summary-row">
+              <div class="summary-item">
+                <div class="s-label">收入</div>
+                <div class="s-value" id="sumIncome">¥12,000</div>
+              </div>
+              <div class="summary-item">
+                <div class="s-label">支出</div>
+                <div class="s-value" id="sumExpense">¥4,481.5</div>
+              </div>
+              <div class="summary-item balance">
+                <div class="s-label">结余</div>
+                <div class="s-value positive" id="sumBalance">¥7,518.5</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cat-section">
+            <div class="section-label">本月支出分布</div>
+            <div id="catChart"></div>
+          </div>
+
+          <div class="tx-section">
+            <div class="section-label">最近账单</div>
+            <div id="txList"></div>
+          </div>
+
+          <button class="fab" onclick="openQuickAdd()" title="记一笔">+</button>
+        </div>
+
+        <!-- Quick Add overlay -->
+        <div class="dash-overlay" id="quickAddOverlay">
+          <div class="quickadd-screen">
+            <div class="qa-header">
+              <span class="qa-title">记一笔</span>
+              <button class="qa-close" onclick="closeQuickAdd()">&times;</button>
+            </div>
+            <div class="qa-type-toggle" id="qaTypeToggle">
+              <button class="qa-type-btn active" data-type="expense" onclick="setQAType('expense')">支出</button>
+              <button class="qa-type-btn" data-type="income" onclick="setQAType('income')">收入</button>
+            </div>
+            <input class="qa-amount" type="text" placeholder="0.00" id="qaAmount" inputmode="decimal">
+            <div class="qa-cats" id="qaCats">
+              <span class="pill" data-cat="餐饮" onclick="selectQACat(this)">餐饮</span>
+              <span class="pill" data-cat="交通" onclick="selectQACat(this)">交通</span>
+              <span class="pill" data-cat="购物" onclick="selectQACat(this)">购物</span>
+              <span class="pill" data-cat="娱乐" onclick="selectQACat(this)">娱乐</span>
+              <span class="pill" data-cat="住房" onclick="selectQACat(this)">住房</span>
+              <span class="pill" data-cat="收入" onclick="selectQACat(this)">收入</span>
+            </div>
+            <div class="qa-field">
+              <label class="input-label">日期</label>
+              <input class="input" type="date" value="2024-07-15">
+            </div>
+            <div class="qa-field">
+              <label class="input-label">备注（选填）</label>
+              <input class="input" type="text" placeholder="午餐外卖">
+            </div>
+            <div class="qa-field">
+              <label class="input-label">一句话记账</label>
+              <input class="input" type="text" placeholder="例如：午餐 38 元，餐饮，和同事吃饭">
+              <div class="qa-field-helper">AI 自动解析金额、分类、日期和备注。</div>
+            </div>
+            <button class="btn btn-primary btn-block qa-submit" onclick="closeQuickAdd()">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 3: QUICK ADD (standalone) -->
+      <div class="phone-screen" data-screen="3">
+        <div class="quickadd-screen">
+          <div class="qa-header">
+            <span class="qa-title">记一笔</span>
+          </div>
+          <div class="qa-type-toggle">
+            <button class="qa-type-btn active">支出</button>
+            <button class="qa-type-btn">收入</button>
+          </div>
+          <input class="qa-amount" type="text" placeholder="0.00" value="128.50">
+          <div class="qa-cats">
+            <span class="pill selected">餐饮</span>
+            <span class="pill">交通</span>
+            <span class="pill">购物</span>
+            <span class="pill">娱乐</span>
+            <span class="pill">住房</span>
+            <span class="pill">收入</span>
+          </div>
+          <div class="qa-field">
+            <label class="input-label">日期</label>
+            <input class="input" type="date" value="2024-07-15">
+          </div>
+          <div class="qa-field">
+            <label class="input-label">备注（选填）</label>
+            <input class="input" type="text" placeholder="朋友聚餐">
+          </div>
+          <div class="qa-field">
+            <label class="input-label">一句话记账</label>
+            <input class="input" type="text" placeholder="例如：打车 26 元，回公司，分类交通">
+            <div class="qa-field-helper">AI 自动解析金额、分类、日期和备注。</div>
+          </div>
+          <button class="btn btn-primary btn-block qa-submit">保存</button>
+        </div>
+      </div>
+
+      <!-- SCREEN 4: TRANSACTION INTERACTION DEMO -->
+      <div class="phone-screen" data-screen="4">
+        <div class="demo-screen">
+          <div class="demo-header">账单操作</div>
+          <!-- Swipe to delete demo item -->
+          <div class="tx-swipe-wrap" id="swipeWrap1">
+            <div class="tx-swipe-bg">删除</div>
+            <div class="tx-swipe-content" id="swipeContent1"
+                 ontouchstart="swipeStart(event, 'swipeContent1')"
+                 ontouchmove="swipeMove(event, 'swipeContent1')"
+                 ontouchend="swipeEnd(event, 'swipeContent1')"
+                 onmousedown="swipeStart(event, 'swipeContent1')"
+                 onmousemove="swipeMove(event, 'swipeContent1')"
+                 onmouseup="swipeEnd(event, 'swipeContent1')"
+                 onmouseleave="swipeEnd(event, 'swipeContent1')">
+              <div class="tx-cat-icon tx-icon-food">食</div>
+              <div class="tx-info">
+                <div class="tx-title">午餐外卖</div>
+                <div class="tx-meta">餐饮 &middot; 07/15</div>
+              </div>
+              <div class="tx-amount expense">¥38</div>
+            </div>
+          </div>
+
+          <!-- Normal items -->
+          <div class="tx-item">
+            <div class="tx-cat-icon tx-icon-transport">行</div>
+            <div class="tx-info">
+              <div class="tx-title">地铁充值</div>
+              <div class="tx-meta">交通 &middot; 07/14</div>
+            </div>
+            <div class="tx-amount expense">¥100</div>
+          </div>
+
+          <!-- Long press demo item -->
+          <div class="longpress-area" id="longpressItem"
+               onmousedown="longPressStart(event, 'longpressItem')"
+               onmouseup="longPressEnd('longpressItem')"
+               onmouseleave="longPressEnd('longpressItem')"
+               ontouchstart="longPressStart(event, 'longpressItem')"
+               ontouchend="longPressEnd('longpressItem')">
+            <div class="tx-cat-icon tx-icon-shopping">购</div>
+            <div class="tx-info">
+              <div class="tx-title">超市购物</div>
+              <div class="tx-meta">购物 &middot; 07/13</div>
+            </div>
+            <div class="tx-amount expense">¥156.5</div>
+            <div class="edit-overlay">编辑</div>
+          </div>
+
+          <div class="tx-item">
+            <div class="tx-cat-icon tx-icon-entertain">娱</div>
+            <div class="tx-info">
+              <div class="tx-title">电影票</div>
+              <div class="tx-meta">娱乐 &middot; 07/12</div>
+            </div>
+            <div class="tx-amount expense">¥79</div>
+          </div>
+
+          <hr class="demo-separator">
+          <div class="demo-label-row">
+            <div class="demo-label"><span class="dl-icon">&larr;</span> 左滑删除</div>
+            <div class="demo-label"><span class="dl-icon">&#8942;</span> 长按编辑</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 5: SETTINGS -->
+      <div class="phone-screen" data-screen="5" id="settingsScreen">
+        <div class="settings-screen">
+          <div class="settings-title">设置</div>
+
+          <div class="setting-group">
+            <div class="setting-group-label">分类管理</div>
+            <div class="cat-mgmt-list">
+              <span class="cat-mgmt-pill"><span class="cat-dot cat-food"></span>餐饮</span>
+              <span class="cat-mgmt-pill"><span class="cat-dot cat-transport"></span>交通</span>
+              <span class="cat-mgmt-pill"><span class="cat-dot cat-shopping"></span>购物</span>
+              <span class="cat-mgmt-pill"><span class="cat-dot cat-entertain"></span>娱乐</span>
+              <span class="cat-mgmt-pill"><span class="cat-dot cat-housing"></span>住房</span>
+              <span class="cat-mgmt-pill"><span class="cat-dot cat-income"></span>收入</span>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-group-label">默认币种</div>
+            <div class="currency-options" id="currencyOptions">
+              <button class="cur-opt selected" data-cur="CNY" onclick="selectCurrency(this)">CNY ¥</button>
+              <button class="cur-opt" data-cur="USD" onclick="selectCurrency(this)">USD $</button>
+              <button class="cur-opt" data-cur="EUR" onclick="selectCurrency(this)">EUR &euro;</button>
+              <button class="cur-opt" data-cur="GBP" onclick="selectCurrency(this)">GBP &pound;</button>
+              <button class="cur-opt" data-cur="JPY" onclick="selectCurrency(this)">JPY ¥</button>
+              <button class="cur-opt" data-cur="HKD" onclick="selectCurrency(this)">HKD $</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-group-label">其他</div>
+            <div class="setting-item">
+              <span class="si-left">数据导出</span>
+              <span class="si-right"><span class="si-arrow">&rsaquo;</span></span>
+            </div>
+            <div class="setting-item">
+              <span class="si-left">关于</span>
+              <span class="si-right">v1.0<span class="si-arrow">&rsaquo;</span></span>
+            </div>
+          </div>
+
+          <div class="danger-zone">
+            <div class="setting-item" onclick="openDeleteConfirm()">
+              <span class="si-left">注销账户</span>
+              <span class="si-right"><span class="si-arrow">&rsaquo;</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete confirmation overlay -->
+        <div class="dash-overlay" id="deleteConfirmOverlay">
+          <div class="confirm-screen">
+            <div class="confirm-icon">!</div>
+            <div class="confirm-title">确认注销账户</div>
+            <div class="confirm-desc">
+              注销后，你的<strong>所有账单数据</strong>将被永久删除，无法恢复。如有需要，请先导出数据。
+            </div>
+            <div class="confirm-actions">
+              <button class="btn btn-outline btn-block" onclick="closeDeleteConfirm()">我再想想</button>
+              <button class="btn btn-block" style="background:var(--fg);color:#FAF8F5;">确认注销</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 6: DELETE CONFIRMATION (standalone) -->
+      <div class="phone-screen" data-screen="6">
+        <div class="confirm-screen">
+          <div class="confirm-icon">!</div>
+          <div class="confirm-title">确认注销账户</div>
+          <div class="confirm-desc">
+            注销后，你的<strong>所有账单数据</strong>将被永久删除，无法恢复。如有需要，请先导出数据。
+          </div>
+          <div class="confirm-actions">
+            <button class="btn btn-outline btn-block">我再想想</button>
+            <button class="btn btn-block" style="background:var(--fg);color:#FAF8F5;">确认注销</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 7: EMPTY STATE -->
+      <div class="phone-screen" data-screen="7">
+        <div class="empty-screen">
+          <div class="empty-visual">+</div>
+          <div class="empty-title">开始记录</div>
+          <div class="empty-desc">你还没有任何账单记录。<br>记下第一笔，从这里开始。</div>
+          <button class="btn btn-primary">记一笔</button>
+        </div>
+      </div>
+
+      <!-- SCREEN 8: NO DATA MONTH -->
+      <div class="phone-screen" data-screen="8">
+        <div class="nodata-screen">
+          <div class="nodata-month">
+            <div class="month-switcher">
+              <button>&larr;</button>
+              <span class="month-label">2024年6月</span>
+              <button>&rarr;</button>
+            </div>
+          </div>
+          <div class="nodata-content">
+            <div class="nodata-visual">&empty;</div>
+            <div class="nodata-title">本月暂无账单记录</div>
+            <div class="nodata-desc">切换到有数据的月份查看</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /phone-frame -->
+
+    <!-- SIDEBAR INFO -->
+    <aside class="screen-info" id="screenInfo">
+      <div class="screen-num" id="siNum">01</div>
+      <div class="screen-title" id="siTitle">登录</div>
+      <div class="screen-desc" id="siDesc">邮箱 + 验证码，无需密码，低门槛进入。</div>
+      <div class="screen-dots" id="screenDots"></div>
+    </aside>
+  </div>
+
+  <nav class="page-nav">
+    <div class="screen-dots" id="screenDots2"></div>
+    <span class="nav-hint">点击圆点切换 · 键盘 &larr; &rarr;</span>
+  </nav>
+</div>
+
+<script>
+/* ============================================================
+   SCREEN DATA
+   ============================================================ */
+const screens = [
+  { num:'01', title:'登录', desc:'邮箱 + 验证码，无需密码，低门槛进入。' },
+  { num:'02', title:'仪表盘', desc:'当月收支总览、分类支出可视化、最近账单列表。' },
+  { num:'03', title:'快速记账', desc:'收入/支出切换，金额、分类、日期、备注，一步记录。' },
+  { num:'04', title:'账单操作', desc:'左滑删除 &middot; 长按编辑。触控交互演示。' },
+  { num:'05', title:'设置', desc:'分类管理、币种切换、账户注销。' },
+  { num:'06', title:'注销确认', desc:'高风险操作的克制表达，二次确认。' },
+  { num:'07', title:'空状态', desc:'新用户无数据时的引导状态。' },
+  { num:'08', title:'无数据月份', desc:'某月无账单记录时的提示状态。' },
+];
+
+let currentScreen = 1;
+
+/* ============================================================
+   DASHBOARD DATA
+   ============================================================ */
+const months = [
+  { label:'2024年6月', hasData:false },
+  { label:'2024年7月', hasData:true },
+  { label:'2024年8月', hasData:true },
+];
+let currentMonthIdx = 1;
+
+const julyData = {
+  income: 12000,
+  expenses: [
+    { name:'住房', cat:'housing', amount:3500 },
+    { name:'购物', cat:'shopping', amount:565.5 },
+    { name:'餐饮', cat:'food', amount:192 },
+    { name:'交通', cat:'transport', amount:145 },
+    { name:'娱乐', cat:'entertain', amount:79 },
+  ],
+  transactions: [
+    { title:'午餐外卖', cat:'food', catName:'餐饮', amount:38, type:'expense', date:'07/15', icon:'食', cls:'tx-icon-food' },
+    { title:'地铁充值', cat:'transport', catName:'交通', amount:100, type:'expense', date:'07/14', icon:'行', cls:'tx-icon-transport' },
+    { title:'超市购物', cat:'shopping', catName:'购物', amount:156.5, type:'expense', date:'07/13', icon:'购', cls:'tx-icon-shopping' },
+    { title:'电影票', cat:'entertain', catName:'娱乐', amount:79, type:'expense', date:'07/12', icon:'娱', cls:'tx-icon-entertain' },
+    { title:'房租', cat:'housing', catName:'住房', amount:3500, type:'expense', date:'07/10', icon:'住', cls:'tx-icon-housing' },
+    { title:'工资', cat:'income', catName:'收入', amount:12000, type:'income', date:'07/05', icon:'收', cls:'tx-icon-income' },
+  ]
+};
+
+const augData = {
+  income: 12000,
+  expenses: [
+    { name:'住房', cat:'housing', amount:3500 },
+    { name:'餐饮', cat:'food', amount:520 },
+    { name:'购物', cat:'shopping', amount:380 },
+    { name:'交通', cat:'transport', amount:160 },
+    { name:'娱乐', cat:'entertain', amount:240 },
+  ],
+  transactions: [
+    { title:'晚餐', cat:'food', catName:'餐饮', amount:95, type:'expense', date:'08/10', icon:'食', cls:'tx-icon-food' },
+    { title:'房租', cat:'housing', catName:'住房', amount:3500, type:'expense', date:'08/05', icon:'住', cls:'tx-icon-housing' },
+    { title:'工资', cat:'income', catName:'收入', amount:12000, type:'income', date:'08/05', icon:'收', cls:'tx-icon-income' },
+  ]
+};
+
+function getMonthData(idx) {
+  if (idx === 1) return julyData;
+  if (idx === 2) return augData;
+  return null;
+}
+
+/* ============================================================
+   RENDER DASHBOARD
+   ============================================================ */
+const catColorMap = {
+  food:'cat-food', transport:'cat-transport', shopping:'cat-shopping',
+  entertain:'cat-entertain', housing:'cat-housing', income:'cat-income'
+};
+
+function renderDashboard() {
+  const m = months[currentMonthIdx];
+  document.getElementById('monthLabel').textContent = m.label;
+
+  if (!m.hasData) {
+    document.getElementById('sumIncome').textContent = '--';
+    document.getElementById('sumExpense').textContent = '--';
+    document.getElementById('sumBalance').textContent = '--';
+    document.getElementById('catChart').innerHTML = '';
+    document.getElementById('txList').innerHTML = '';
+    return;
+  }
+
+  const d = getMonthData(currentMonthIdx);
+  if (!d) return;
+
+  const totalExp = d.expenses.reduce((s,e) => s + e.amount, 0);
+
+  document.getElementById('sumIncome').textContent = '¥' + d.income.toLocaleString('zh-CN');
+  document.getElementById('sumExpense').textContent = '¥' + totalExp.toLocaleString('zh-CN');
+  document.getElementById('sumBalance').textContent = '¥' + (d.income - totalExp).toLocaleString('zh-CN');
+
+  // Category chart
+  let chartHTML = '';
+  d.expenses.forEach(e => {
+    const pct = ((e.amount / totalExp) * 100).toFixed(1);
+    const barW = Math.max((e.amount / totalExp) * 100, 2);
+    chartHTML += `
+      <div class="cat-row">
+        <span class="cat-name">${e.name}</span>
+        <div class="cat-bar-bg"><div class="cat-bar-fill ${catColorMap[e.cat]}" style="width:${barW}%"></div></div>
+        <span class="cat-amount">¥${e.amount.toLocaleString('zh-CN')}</span>
+        <span class="cat-pct">${pct}%</span>
+      </div>`;
+  });
+  document.getElementById('catChart').innerHTML = chartHTML;
+
+  // Transaction list
+  let txHTML = '';
+  d.transactions.slice(0, 5).forEach(tx => {
+    txHTML += `
+      <div class="tx-item">
+        <div class="tx-cat-icon ${tx.cls}">${tx.icon}</div>
+        <div class="tx-info">
+          <div class="tx-title">${tx.title}</div>
+          <div class="tx-meta">${tx.catName} &middot; ${tx.date}</div>
+        </div>
+        <div class="tx-amount ${tx.type}">${tx.type === 'income' ? '+' : '-'}¥${tx.amount.toLocaleString('zh-CN')}</div>
+      </div>`;
+  });
+  document.getElementById('txList').innerHTML = txHTML;
+}
+
+function prevMonth() {
+  if (currentMonthIdx > 0) { currentMonthIdx--; renderDashboard(); }
+}
+function nextMonth() {
+  if (currentMonthIdx < months.length - 1) { currentMonthIdx++; renderDashboard(); }
+}
+
+/* ============================================================
+   LOGIN MODE TOGGLE
+   ============================================================ */
+let loginMode = 'code';
+function toggleLoginMode() {
+  loginMode = loginMode === 'code' ? 'password' : 'code';
+  const label = document.getElementById('loginCredentialLabel');
+  const input = document.getElementById('loginCredentialInput');
+  const sendBtn = document.getElementById('sendCodeBtn');
+  const switchLink = document.getElementById('loginModeSwitch');
+  if (!label || !input || !sendBtn || !switchLink) return;
+
+  if (loginMode === 'password') {
+    label.textContent = '密码';
+    input.type = 'password';
+    input.placeholder = '请输入密码';
+    input.removeAttribute('maxlength');
+    input.value = 'ledger2024';
+    sendBtn.style.visibility = 'hidden';
+    sendBtn.style.pointerEvents = 'none';
+    switchLink.textContent = '验证码登录';
+  } else {
+    label.textContent = '验证码';
+    input.type = 'text';
+    input.placeholder = '6 位数字';
+    input.maxLength = 6;
+    input.value = '';
+    sendBtn.style.visibility = 'visible';
+    sendBtn.style.pointerEvents = 'auto';
+    switchLink.textContent = '密码登录';
+  }
+}
+
+/* ============================================================
+   QUICK ADD OVERLAY
+   ============================================================ */
+function openQuickAdd() {
+  document.getElementById('quickAddOverlay').classList.add('show');
+}
+function closeQuickAdd() {
+  document.getElementById('quickAddOverlay').classList.remove('show');
+}
+function setQAType(type) {
+  const btns = document.querySelectorAll('#qaTypeToggle .qa-type-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  document.querySelector(`#qaTypeToggle .qa-type-btn[data-type="${type}"]`).classList.add('active');
+}
+function selectQACat(el) {
+  document.querySelectorAll('#qaCats .pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+/* ============================================================
+   DELETE CONFIRM OVERLAY
+   ============================================================ */
+function openDeleteConfirm() {
+  document.getElementById('deleteConfirmOverlay').classList.add('show');
+}
+function closeDeleteConfirm() {
+  document.getElementById('deleteConfirmOverlay').classList.remove('show');
+}
+
+/* ============================================================
+   SCREEN SWITCHING
+   ============================================================ */
+function showScreen(n) {
+  currentScreen = n;
+  document.querySelectorAll('.phone-screen').forEach(s => s.classList.remove('active'));
+  const target = document.querySelector(`.phone-screen[data-screen="${n}"]`);
+  if (target) target.classList.add('active');
+
+  // Update info sidebar
+  const sc = screens[n - 1];
+  document.getElementById('siNum').textContent = sc.num;
+  document.getElementById('siTitle').textContent = sc.title;
+  document.getElementById('siDesc').innerHTML = sc.desc;
+
+  // Update dots
+  updateDots('screenDots', n);
+  updateDots('screenDots2', n);
+
+  // Close overlays when switching away
+  if (n !== 2) {
+    document.getElementById('quickAddOverlay').classList.remove('show');
+  }
+  if (n !== 5) {
+    document.getElementById('deleteConfirmOverlay').classList.remove('show');
+  }
+}
+
+function updateDots(containerId, activeN) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  for (let i = 1; i <= 8; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'screen-dot' + (i === activeN ? ' active' : '');
+    dot.onclick = () => showScreen(i);
+    container.appendChild(dot);
+  }
+}
+
+// Initialize dots
+updateDots('screenDots', 1);
+updateDots('screenDots2', 1);
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft' && currentScreen > 1) showScreen(currentScreen - 1);
+  if (e.key === 'ArrowRight' && currentScreen < 8) showScreen(currentScreen + 1);
+});
+
+/* ============================================================
+   SWIPE TO DELETE
+   ============================================================ */
+let swipeState = { el: null, startX: 0, currentX: 0, swiping: false };
+
+function swipeStart(e, elId) {
+  const el = document.getElementById(elId);
+  swipeState.el = el;
+  swipeState.startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+  swipeState.swiping = true;
+  el.style.transition = 'none';
+}
+
+function swipeMove(e, elId) {
+  if (!swipeState.swiping || swipeState.el.id !== elId) return;
+  const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+  const delta = clientX - swipeState.startX;
+  if (delta > 0) return;
+  swipeState.currentX = Math.max(delta, -80);
+  swipeState.el.style.transform = `translateX(${swipeState.currentX}px)`;
+}
+
+function swipeEnd(e, elId) {
+  if (!swipeState.swiping || swipeState.el.id !== elId) return;
+  swipeState.swiping = false;
+  swipeState.el.style.transition = 'transform 0.2s ease';
+  if (swipeState.currentX < -40) {
+    swipeState.el.style.transform = 'translateX(-80px)';
+  } else {
+    swipeState.el.style.transform = 'translateX(0)';
+    swipeState.currentX = 0;
+  }
+}
+
+// Reset swipe on click outside
+document.addEventListener('click', e => {
+  if (swipeState.el && !swipeState.swiping && swipeState.currentX < -40 &&
+      !swipeState.el.contains(e.target) && !e.target.closest('.tx-swipe-bg')) {
+    swipeState.el.style.transform = 'translateX(0)';
+    swipeState.currentX = 0;
+  }
+});
+
+/* ============================================================
+   LONG PRESS
+   ============================================================ */
+let lpTimer = null;
+
+function longPressStart(e, elId) {
+  const el = document.getElementById(elId);
+  lpTimer = setTimeout(() => {
+    el.classList.toggle('pressed');
+  }, 500);
+}
+
+function longPressEnd(elId) {
+  if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+}
+
+/* ============================================================
+   CURRENCY SELECT
+   ============================================================ */
+function selectCurrency(el) {
+  document.querySelectorAll('#currencyOptions .cur-opt').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderDashboard();
+showScreen(1);
+</script>
+
+</body>
+</html>

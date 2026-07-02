@@ -104,7 +104,7 @@ router.get('/category-pie', auth, (req, res) => {
   }
 });
 
-// GET /timeline — 消费趋势时间轴
+// GET /timeline — 消费趋势时间轴（含收入/支出）
 router.get('/timeline', auth, (req, res) => {
   try {
     const { start, end, granularity = 'month' } = req.query;
@@ -119,13 +119,15 @@ router.get('/timeline', auth, (req, res) => {
       dateFormat = '%Y-%W';
     }
 
-    let where = 'WHERE user_id = ? AND type = \'expense\'';
+    let where = 'WHERE user_id = ?';
     const params = [userId];
-    if (start) { where += ' AND created_at >= ?'; params.push(start + '-01'); }
-    if (end) { where += ' AND created_at <= ?'; params.push(end + '-31'); }
+    if (start) { where += ' AND created_at >= ?'; params.push(start + '-01 00:00:00'); }
+    if (end) { where += ' AND created_at <= ?'; params.push(end + '-31 23:59:59'); }
 
     const rows = db.prepare(
-      `SELECT ${groupBy} AS period, COALESCE(SUM(amount),0) AS expense
+      `SELECT ${groupBy} AS period,
+              COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) AS income,
+              COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) AS expense
        FROM bills ${where} GROUP BY period ORDER BY period`
     ).all(...params);
 

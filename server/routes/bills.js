@@ -52,7 +52,7 @@ router.get('/', auth, (req, res) => {
 // POST / — 创建账单
 router.post('/', auth, (req, res) => {
   try {
-    const { category_id, type = 'expense', amount, note = '' } = req.body;
+    const { category_id, type = 'expense', amount, note = '', created_at } = req.body;
     const userId = req.userId;
 
     if (!category_id) return res.status(400).json({ code: 400, message: '请选择分类' });
@@ -65,9 +65,12 @@ router.post('/', auth, (req, res) => {
     const cat = db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').get(category_id, userId);
     if (!cat) return res.status(400).json({ code: 400, message: '分类不存在' });
 
+    // 支持自定义消费时间，默认当前时间
+    const billTime = created_at || new Date().toISOString().replace('T', ' ').slice(0, 19);
+
     const result = db.prepare(
-      'INSERT INTO bills (user_id, category_id, type, amount, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
-    ).run(userId, category_id, type, amount, note);
+      'INSERT INTO bills (user_id, category_id, type, amount, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(userId, category_id, type, amount, note, billTime, billTime);
 
     res.json({ code: 0, data: { id: result.lastInsertRowid } });
   } catch (err) {

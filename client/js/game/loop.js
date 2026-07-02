@@ -1,5 +1,3 @@
-// 游戏主循环 + Canvas 初始化 + 渲染调度
-
 const GameLoop = {
   canvas: null,
   ctx: null,
@@ -8,78 +6,88 @@ const GameLoop = {
   animFrameId: null,
   width: 0,
   height: 0,
-
-  // 年度花费金额（存储在 CNY，由后端累积维护）
   annualExpense: 0,
-
-  // 用户币种偏好
   currency: 'CNY',
-
-  // resize debounce
   resizeTimer: null,
   needsRelayout: false,
+  bgStars: [],
 
   init() {
     this.canvas = document.getElementById('game-canvas');
     this.ctx = this.canvas.getContext('2d');
-    this.resize();
+    this.applyResize();
+    this.initBgStars();
     this.bindEvents();
   },
 
+  initBgStars() {
+    this.bgStars = [];
+    for (let i = 0; i < 50; i += 1) {
+      this.bgStars.push({
+        x: Math.random() * 2000,
+        y: Math.random() * 2000,
+        size: 0.5 + Math.random() * 2,
+        twinkle: Math.random() * Math.PI * 2
+      });
+    }
+  },
+
+  applyResize() {
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    if (Spawner) Spawner.respawnOnResize();
+    if (Character) Character.onResize();
+    this.needsRelayout = false;
+  },
+
   resize() {
+    this.needsRelayout = true;
     clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => {
-      this.width = window.innerWidth;
-      this.height = window.innerHeight;
-      this.canvas.width = this.width;
-      this.canvas.height = this.height;
-      if (Spawner) Spawner.respawnOnResize();
-      if (Character) Character.onResize();
-      this.needsRelayout = false;
-    }, 200);
-    this.needsRelayout = true;
+      this.applyResize();
+    }, 120);
   },
 
   bindEvents() {
     window.addEventListener('resize', () => this.resize());
 
-    // Canvas click 事件 - 用于小球点击 / 糖豆人点击
-    this.canvas.addEventListener('click', (e) => {
+    this.canvas.addEventListener('click', (event) => {
       if (this.needsRelayout) return;
 
       const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
 
-      // 先检查侧边面板是否打开
       const sidebar = document.getElementById('sidebar');
       if (sidebar && sidebar.classList.contains('open')) {
         const sidebarRect = sidebar.getBoundingClientRect();
-        if (e.clientX >= sidebarRect.left) return; // 点击在侧边面板区域
-        // 点击游戏区域关闭面板
+        if (event.clientX >= sidebarRect.left) return;
         Sidebar.close();
         return;
       }
 
-      // 检查面板是否打开 → 关闭面板
       const panel = document.getElementById('config-panel');
       if (panel && panel.style.display === 'block') {
         const panelRect = panel.getBoundingClientRect();
-        if (e.clientX >= panelRect.left && e.clientX <= panelRect.right &&
-            e.clientY >= panelRect.top && e.clientY <= panelRect.bottom) {
-          return; // 点击面板内部
+        if (
+          event.clientX >= panelRect.left &&
+          event.clientX <= panelRect.right &&
+          event.clientY >= panelRect.top &&
+          event.clientY <= panelRect.bottom
+        ) {
+          return;
         }
         Panel.close();
         return;
       }
 
-      // hitTest 糖豆人
       if (Character && Character.hitTest(x, y)) {
         Sidebar.open();
         return;
       }
 
-      // hitTest 小球
       if (BallManager) BallManager.onClick(x, y);
     });
   },
@@ -99,60 +107,77 @@ const GameLoop = {
     }
   },
 
-  loop(timestamp) {
-    if (!this.running) return;
-
-    const deltaTime = Math.min((timestamp - this.lastTime) / 1000, 0.1); // 防止时间跳跃
-    this.lastTime = timestamp;
-
-    const ctx = this.ctx;
-
-    // 1. 绘制暖色渐变背景
-    const grad = ctx.createLinearGradient(0, 0, this.width, this.height);
-    grad.addColorStop(0, '#FFF3E0');
-    grad.addColorStop(0.5, '#FFE0B2');
-    grad.addColorStop(1, '#FFCC80');
+  drawPacManBackground(ctx) {
+    const grad = ctx.createLinearGradient(0, 0, 0, this.height);
+    grad.addColorStop(0, '#0a1030');
+    grad.addColorStop(0.55, '#091126');
+    grad.addColorStop(1, '#050813');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, this.width, this.height);
 
-    // 2. 更新和渲染
-    if (Character) Character.update(deltaTime);
-    if (BallManager) BallManager.updateAll(deltaTime);
-    if (AnimationManager) AnimationManager.update(deltaTime);
+    ctx.strokeStyle = 'rgba(42, 99, 255, 0.14)';
+    ctx.lineWidth = 1;
+    for (let x = 40; x < this.width; x += 120) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, this.height);
+      ctx.stroke();
+    }
 
-    // 3. 渲染层
-    if (BallManager) BallManager.drawAll(ctx);
-    if (Character) Character.draw(ctx);
-    if (AnimationManager) AnimationManager.draw(ctx);
-
-    // 4. HUD - 右上角年度花费
-    this.drawHUD(ctx);
-
-    // 5. 小球补充逻辑
-    if (Spawner) Spawner.checkAndSpawn();
-
-    this.animFrameId = requestAnimationFrame((t) => this.loop(t));
+    const time = Date.now() / 1000;
+    ctx.fillStyle = '#ffffff';
+    this.bgStars.forEach((star) => {
+      const alpha = 0.25 + 0.35 * Math.sin(time * 2 + star.twinkle);
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(
+        (star.x + time * 5) % this.width,
+        (star.y + time * 3) % this.height,
+        star.size,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
   },
 
   drawHUD(ctx) {
-    const padding = 20;
+    const padding = 22;
     const x = this.width - padding;
-    const y = padding + 20;
-
-    // 背景
+    const y = padding + 16;
     const displayAmount = this.getDisplayAmount();
-    ctx.font = 'bold 22px "Segoe UI","PingFang SC",sans-serif';
-    const textWidth = ctx.measureText(displayAmount).width + 30;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = 'bold 24px "Courier New", "Press Start 2P", monospace';
+    const textWidth = ctx.measureText(displayAmount).width + 40;
+
+    ctx.fillStyle = 'rgba(7, 13, 43, 0.94)';
+    ctx.strokeStyle = '#3ddcff';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.roundRect(x - textWidth, y - 22, textWidth, 44, 12);
+    ctx.roundRect(x - textWidth, y - 28, textWidth, 56, 12);
     ctx.fill();
+    ctx.stroke();
 
-    // 文字
-    ctx.fillStyle = '#4A3728';
+    ctx.strokeStyle = 'rgba(255, 217, 61, 0.22)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - textWidth + 8, y - 20, textWidth - 16, 40);
+
+    ctx.fillStyle = '#3ddcff';
+    ctx.font = 'bold 24px "Courier New", monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(displayAmount, x - 10, y + 8);
+    ctx.fillText(displayAmount, x - 10, y + 10);
+
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = 'bold 10px "Courier New", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('SCORE', x - 10, y - 10);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ff5b9a';
+    ctx.fillText('LEVEL 1', padding, 28);
+    ctx.fillStyle = '#72f06a';
+    ctx.fillText('PELLETS', padding, 48);
   },
 
   getDisplayAmount() {
@@ -174,12 +199,35 @@ const GameLoop = {
 
   setCurrency(code) {
     this.currency = code;
+  },
+
+  loop(timestamp) {
+    if (!this.running) return;
+
+    const deltaTime = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+    this.lastTime = timestamp;
+
+    const ctx = this.ctx;
+    this.drawPacManBackground(ctx);
+
+    if (Character) Character.update(deltaTime);
+    if (BallManager) BallManager.updateAll(deltaTime);
+    if (AnimationManager) AnimationManager.update(deltaTime);
+
+    if (BallManager) BallManager.drawAll(ctx);
+    if (Character) Character.draw(ctx);
+    if (AnimationManager) AnimationManager.draw(ctx);
+
+    this.drawHUD(ctx);
+
+    if (Spawner) Spawner.checkAndSpawn();
+
+    this.animFrameId = requestAnimationFrame((nextTimestamp) => this.loop(nextTimestamp));
   }
 };
 
-// Canvas roundRect polyfill
 if (!CanvasRenderingContext2D.prototype.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+  CanvasRenderingContext2D.prototype.roundRect = function roundRect(x, y, w, h, r) {
     if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r };
     this.beginPath();
     this.moveTo(x + r.tl, y);

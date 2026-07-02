@@ -64,7 +64,7 @@ app.use((err, req, res, next) => {
 
 const PORT = config.port;
 app.listen(PORT, () => {
-  console.log(`糖豆人记账游戏 服务已启动: http://localhost:${PORT}`);
+  console.log(`吃豆人记账 服务已启动: http://localhost:${PORT}`);
   console.log(`环境: ${config.nodeEnv}`);
 });
 

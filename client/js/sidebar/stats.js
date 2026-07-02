@@ -1,4 +1,4 @@
-// 统计页：Canvas 饼图绘制、时间轴、环比信息
+// 统计页：Canvas 饼图绘制、月份时间轴（上→下）、环比信息
 
 const PIE_COLORS = ['#FF6B6B', '#FFA94D', '#FFD43B', '#69DB7C', '#74C0FC', '#DA77F2', '#FF8787', '#FFC078', '#FFE066', '#8CE99A'];
 
@@ -17,13 +17,12 @@ const SidebarStats = {
       <canvas id="pie-canvas" width="280" height="280"></canvas>
       <div id="pie-legend" class="stats-legend"></div>
       <div id="change-indicator" class="change-indicator"></div>
-      <div id="timeline-section" style="margin-top:16px;">
-        <h4 style="margin-bottom:8px;">消费趋势</h4>
-        <div id="timeline-slider" style="overflow-x:auto;padding:4px 0;"></div>
+      <div id="timeline-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+        <h4 style="margin-bottom:10px;font-size:12px;color:var(--neon-yellow);">消费趋势</h4>
+        <div id="timeline-chart" style="position:relative;min-height:200px;"></div>
       </div>
     `;
 
-    // 绑定粒度切换
     container.querySelectorAll('[data-gran]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.periodMode = btn.dataset.gran;
@@ -41,7 +40,6 @@ const SidebarStats = {
     const week = `${now.getFullYear()}-W${weekNum}`;
 
     try {
-      // 汇总
       const summaryParams = this.periodMode === 'month'
         ? { period: month, granularity: 'month' }
         : { period: week, granularity: 'week' };
@@ -50,12 +48,11 @@ const SidebarStats = {
       const summaryEl = container.querySelector('#stats-summary');
       summaryEl.innerHTML = `
         <div style="display:flex;justify-content:space-around;padding:8px 0;">
-          <div style="text-align:center;"><div style="font-size:12px;color:#999;">收入</div><div style="font-weight:700;color:#69DB7C;">+${summary.income_total.toFixed(2)}</div></div>
-          <div style="text-align:center;"><div style="font-size:12px;color:#999;">支出</div><div style="font-weight:700;color:#FF6B6B;">-${summary.expense_total.toFixed(2)}</div></div>
+          <div style="text-align:center;"><div style="font-size:12px;color:var(--neon-green);">收入</div><div style="font-weight:700;color:var(--neon-green);">+${summary.income_total.toFixed(2)}</div></div>
+          <div style="text-align:center;"><div style="font-size:12px;color:var(--neon-pink);">支出</div><div style="font-weight:700;color:var(--neon-pink);">-${summary.expense_total.toFixed(2)}</div></div>
         </div>
       `;
 
-      // 环比
       const changeEl = container.querySelector('#change-indicator');
       if (summary.change_percent !== null) {
         const isUp = summary.change_percent > 0;
@@ -64,19 +61,19 @@ const SidebarStats = {
         changeEl.innerHTML = '暂无环比数据';
       }
 
-      // 饼图
       const pieParams = this.periodMode === 'month' ? { month } : { week };
       const pieData = await api.getCategoryPie(pieParams);
       this.drawPieChart(container.querySelector('#pie-canvas'), pieData, container.querySelector('#pie-legend'));
 
-      // 时间轴
+      // 月份时间轴：从上往下
       const timelineData = await api.getTimeline({
-        start: `${now.getFullYear() - 1}-01`,
+        start: `${now.getFullYear()}-01`,
         end: `${now.getFullYear()}-12`,
         granularity: 'month'
       });
-      this.renderTimeline(container.querySelector('#timeline-slider'), timelineData);
+      this.renderTimeline(container.querySelector('#timeline-chart'), timelineData);
     } catch (e) {
+      console.error('stats load error:', e);
       container.innerHTML = `<div class="empty-state"><p>加载统计数据失败</p></div>`;
     }
   },
@@ -90,12 +87,12 @@ const SidebarStats = {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (data.length === 0) {
-      ctx.fillStyle = '#E0D0C0';
+      ctx.fillStyle = '#111144';
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#999';
-      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#666699';
+      ctx.font = '12px "PingFang SC","Microsoft YaHei",sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('暂无数据', cx, cy);
       legendEl.innerHTML = '';
@@ -118,7 +115,6 @@ const SidebarStats = {
       ctx.fill();
 
       legendItems.push({ color, icon: item.icon, name: item.category_name, percent: item.percent });
-
       startAngle = endAngle;
     });
 
@@ -131,26 +127,57 @@ const SidebarStats = {
   },
 
   renderTimeline(el, data) {
-    if (data.length === 0) {
-      el.innerHTML = '<div style="color:#999;padding:8px;">暂无趋势数据</div>';
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-dim);padding:12px;text-align:center;">暂无趋势数据</div>';
       return;
     }
 
-    const maxExpense = Math.max(...data.map(d => d.expense));
-    const barWidth = Math.max(36, el.offsetWidth / data.length - 8);
+    // 计算最大值用于比例
+    const maxVal = Math.max(
+      ...data.map(d => Math.max(d.expense || 0, d.income || 0)),
+      1
+    );
 
+    // 从上往下渲染
     const html = data.map(d => {
-      const height = maxExpense > 0 ? Math.max(4, (d.expense / maxExpense) * 100) : 4;
+      const label = d.period; // "2026-01" 格式
+      const displayLabel = label.slice(5); // "01" 月份
+      const expensePct = ((d.expense || 0) / maxVal * 100).toFixed(1);
+      const incomePct = ((d.income || 0) / maxVal * 100).toFixed(1);
+      const expenseW = Math.max((d.expense || 0) / maxVal * 150, 4);
+      const incomeW = Math.max((d.income || 0) / maxVal * 150, 4);
+
       return `
-        <div style="display:inline-block;text-align:center;margin:0 4px;vertical-align:bottom;">
-          <div style="width:${barWidth}px;height:${height}px;background:#FFA94D;border-radius:4px 4px 0 0;min-height:4px;"></div>
-          <div style="font-size:10px;color:#999;margin-top:2px;">${d.period}</div>
-          <div style="font-size:11px;">${d.expense.toFixed(0)}</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;min-height:22px;">
+          <!-- 月份标签 -->
+          <div style="width:28px;text-align:right;color:var(--text-dim);font-family:'Press Start 2P','Courier New',monospace;font-size:9px;flex-shrink:0;">
+            ${displayLabel}月
+          </div>
+          <!-- 支出条（粉色，向右） -->
+          <div style="flex:1;display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+            <span style="color:var(--neon-pink);font-size:10px;width:50px;text-align:right;">${(d.expense||0).toFixed(0)}</span>
+            <div style="height:14px;width:${expenseW}px;background:linear-gradient(90deg,rgba(255,110,199,0.2),rgba(255,110,199,0.7));border-radius:2px;transition:width 0.3s;"></div>
+          </div>
+          <!-- 分隔 -->
+          <div style="width:16px;text-align:center;font-size:9px;color:var(--text-dim);flex-shrink:0;">|</div>
+          <!-- 收入条（绿色，向左） -->
+          <div style="flex:1;display:flex;align-items:center;gap:4px;">
+            <div style="height:14px;width:${incomeW}px;background:linear-gradient(90deg,rgba(57,255,20,0.7),rgba(57,255,20,0.2));border-radius:2px;transition:width 0.3s;"></div>
+            <span style="color:var(--neon-green);font-size:10px;width:50px;">${(d.income||0).toFixed(0)}</span>
+          </div>
         </div>
       `;
     }).join('');
 
-    el.innerHTML = `<div style="display:flex;align-items:flex-end;min-width:${data.length * 60}px;">${html}</div>`;
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:9px;color:var(--text-dim);">
+        <span style="width:28px;"></span>
+        <span style="flex:1;text-align:right;color:var(--neon-pink);">支出</span>
+        <span style="width:16px;"></span>
+        <span style="flex:1;text-align:left;color:var(--neon-green);">收入</span>
+      </div>
+      ${html}
+    `;
   }
 };
 

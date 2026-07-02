@@ -1,16 +1,26 @@
-// 小球：绘制、状态、命中检测
-// 彩色小球（支出）+ 金色小球（收入）
+const DOT_COLORS = ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#74c0fc', '#da77f2'];
+const GOLD_COLOR = '#ffd93d';
 
-const BALL_COLORS = ['#FF6B6B', '#FFA94D', '#FFD43B', '#69DB7C', '#74C0FC', '#DA77F2'];
-const GOLD_COLOR = '#FFD700';
-const GOLD_CONFIGURED = '#DAA520';
+function drawPixelBlock(ctx, px, py, size, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(px * size, py * size, size, size);
+}
+
+function drawPattern(ctx, pattern, palette, pixelSize) {
+  pattern.forEach((row, y) => {
+    row.split('').forEach((cell, x) => {
+      if (cell === '.') return;
+      drawPixelBlock(ctx, x, y, pixelSize, palette[cell] || '#ffffff');
+    });
+  });
+}
 
 class Ball {
   constructor(x, y, color, isGold = false) {
     this.x = x;
     this.y = y;
-    this.radius = 25;
-    this.configuredRadius = 32;
+    this.radius = 10;
+    this.configuredRadius = 16;
     this.color = color;
     this.isGold = isGold;
     this.configured = false;
@@ -20,12 +30,11 @@ class Ball {
     this.categoryName = '';
     this.type = isGold ? 'income' : 'expense';
     this.eaten = false;
-    this.flying = false;
-    this.flyProgress = 0;
-    this.flyStart = null;
-    this.flyEnd = null;
-    this.flyControl = null;
+    this.savedBill = false;
     this.pulsePhase = Math.random() * Math.PI * 2;
+    this.eatTimer = 0;
+    this.eatDuration = 0.15;
+    this.flashIntensity = 0;
   }
 
   configure(amount, categoryId, categoryIcon, categoryName) {
@@ -39,99 +48,144 @@ class Ball {
   }
 
   hitTest(mx, my) {
-    if (this.eaten || this.flying) return false;
+    if (this.eaten) return false;
     const dx = mx - this.x;
     const dy = my - this.y;
-    const r = this.configured ? this.configuredRadius : this.radius;
+    const r = (this.configured ? this.configuredRadius : this.radius) + 5;
     return (dx * dx + dy * dy) <= (r * r);
   }
 
   update(dt) {
     if (this.eaten) return;
-    this.pulsePhase += dt * 2;
-    if (this.flying) {
-      this.flyProgress += dt * 3;
-      if (this.flyProgress >= 1) {
-        this.flyProgress = 1;
-        this.eaten = true;
-      }
-      const t = this.easeOutCubic(this.flyProgress);
-      // 贝塞尔曲线: B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
-      const mt = 1 - t;
-      this.x = mt * mt * this.flyStart.x + 2 * mt * t * this.flyControl.x + t * t * this.flyEnd.x;
-      this.y = mt * mt * this.flyStart.y + 2 * mt * t * this.flyControl.y + t * t * this.flyEnd.y;
+    this.pulsePhase += dt * 4;
+  }
+
+  startEatAnim() {
+    this.eatTimer = 0;
+    this.flashIntensity = 1;
+  }
+
+  updateEatAnim(dt) {
+    this.eatTimer += dt;
+    if (this.eatTimer >= this.eatDuration) {
+      this.eaten = true;
+      return true;
     }
+    this.flashIntensity = 1 - this.eatTimer / this.eatDuration;
+    return false;
   }
 
-  easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
+  drawGlow(ctx, size) {
+    if (!this.flashIntensity && !this.isGold) return;
+    const glowRadius = size * (this.isGold ? 1.1 : 0.85) + this.flashIntensity * 8;
+    const glow = ctx.createRadialGradient(0, 0, size * 0.3, 0, 0, glowRadius);
+    glow.addColorStop(0, this.isGold ? 'rgba(255,240,140,0.75)' : this.getGlowColor());
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  startFlying(targetX, targetY) {
-    this.flying = true;
-    this.flyProgress = 0;
-    this.flyStart = { x: this.x, y: this.y };
-    this.flyEnd = { x: targetX, y: targetY - 20 };
-    // 控制点在目标侧上方
-    const mx = (this.flyStart.x + this.flyEnd.x) / 2;
-    const my = Math.min(this.flyStart.y, this.flyEnd.y) - 60;
-    this.flyControl = { x: mx, y: my };
+  drawDot(ctx, size) {
+    const pulse = 1 + Math.sin(this.pulsePhase) * 0.08;
+    const pixelSize = Math.max(2, Math.round((size * pulse) / 5));
+    const half = (5 * pixelSize) / 2;
+    ctx.save();
+    ctx.translate(-half, -half);
+    drawPattern(
+      ctx,
+      [
+        '..a..',
+        '.aaa.',
+        'aaaaa',
+        '.aaa.',
+        '..a..'
+      ],
+      { a: this.getConfiguredColor() },
+      pixelSize
+    );
+    ctx.restore();
+  }
+
+  drawPowerPellet(ctx, size) {
+    const pulse = 1 + Math.sin(this.pulsePhase * 1.5) * 0.12;
+    const pixelSize = Math.max(2, Math.round((size * pulse) / 6));
+    const half = (6 * pixelSize) / 2;
+    ctx.save();
+    ctx.translate(-half, -half);
+    drawPattern(
+      ctx,
+      [
+        '..yy..',
+        '.yyyy.',
+        'yywwyy',
+        'yywwyy',
+        '.yyyy.',
+        '..yy..'
+      ],
+      { y: GOLD_COLOR, w: '#fff7bf' },
+      pixelSize
+    );
+    ctx.restore();
+  }
+
+  drawAmountTag(ctx, size) {
+    if (!this.configured) return;
+    const text = this.isGold ? `+${this.amount}` : `${this.amount}`;
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const width = ctx.measureText(text).width + 14;
+    const tagY = size + 12;
+
+    ctx.fillStyle = 'rgba(4, 8, 28, 0.88)';
+    ctx.strokeStyle = this.isGold ? '#ffd93d' : '#3ddcff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-width / 2, tagY - 11, width, 22, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = this.isGold ? '#fff1a8' : '#eef4ff';
+    ctx.fillText(text, 0, tagY);
   }
 
   draw(ctx) {
     if (this.eaten) return;
 
-    const r = this.configured ? this.configuredRadius : this.radius;
-    const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
-
+    const size = this.configured ? this.configuredRadius : this.radius;
     ctx.save();
     ctx.translate(this.x, this.y);
+    this.drawGlow(ctx, size);
 
     if (this.isGold) {
-      // 金色小球 - 光泽渐变
-      const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r * pulse);
-      grad.addColorStop(0, '#FFF8DC');
-      grad.addColorStop(0.4, this.configured ? GOLD_CONFIGURED : GOLD_COLOR);
-      grad.addColorStop(1, this.configured ? '#B8860B' : '#DAA520');
-      ctx.fillStyle = grad;
+      this.drawPowerPellet(ctx, size);
     } else {
-      ctx.fillStyle = this.getConfiguredColor();
+      this.drawDot(ctx, size);
     }
 
-    ctx.beginPath();
-    ctx.arc(0, 0, r * pulse, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 高光
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.beginPath();
-    ctx.arc(-r * 0.25, -r * 0.3, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 配置后显示金额
-    if (this.configured) {
-      const displayAmount = this.isGold
-        ? `+${this.amount}`
-        : `${this.amount}`;
-      ctx.fillStyle = this.isGold ? '#4A3728' : '#FFFFFF';
-      ctx.font = 'bold 16px "Segoe UI","PingFang SC",sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(displayAmount, 0, 0);
-    }
-
+    this.drawAmountTag(ctx, size);
     ctx.restore();
   }
 
   getConfiguredColor() {
-    if (!this.configured) return this.color;
-    // 加深 20%（HSL 调整 L 分量）
+    if (!this.configured || this.isGold) return this.color;
     const hex = this.color;
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
-    const factor = 0.7;
+    const factor = 0.78;
     return `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
+  }
+
+  getGlowColor() {
+    if (this.isGold) return 'rgba(255,217,61,0.65)';
+    const hex = this.color;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},0.55)`;
   }
 }
 
@@ -146,28 +200,18 @@ const BallManager = {
     this.balls.push(ball);
   },
 
-  remove(ball) {
-    const idx = this.balls.indexOf(ball);
-    if (idx >= 0) this.balls.splice(idx, 1);
+  getActiveCount() {
+    return this.balls.filter((ball) => !ball.eaten).length;
   },
 
   getConfigured() {
-    return this.balls.filter(b => b.configured && !b.eaten && !b.flying);
-  },
-
-  getActive() {
-    return this.balls.filter(b => !b.eaten);
-  },
-
-  getActiveCount() {
-    return this.balls.filter(b => !b.eaten && !b.flying).length;
+    return this.balls.filter((ball) => ball.configured && !ball.eaten);
   },
 
   onClick(x, y) {
-    // 逆序检查（上层优先）
-    for (let i = this.balls.length - 1; i >= 0; i--) {
+    for (let i = this.balls.length - 1; i >= 0; i -= 1) {
       const ball = this.balls[i];
-      if (ball.hitTest(x, y) && !ball.configured) {
+      if (ball.hitTest(x, y) && !ball.configured && !ball.eaten) {
         Panel.open(ball, x, y);
         return;
       }
@@ -175,13 +219,12 @@ const BallManager = {
   },
 
   updateAll(dt) {
-    this.balls.forEach(b => b.update(dt));
-    // 清理被吃掉的小球
-    this.balls = this.balls.filter(b => !b.eaten);
+    this.balls.forEach((ball) => ball.update(dt));
+    this.balls = this.balls.filter((ball) => !ball.eaten);
   },
 
   drawAll(ctx) {
-    this.balls.forEach(b => b.draw(ctx));
+    this.balls.forEach((ball) => ball.draw(ctx));
   }
 };
 

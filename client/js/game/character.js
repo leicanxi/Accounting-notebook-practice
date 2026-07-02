@@ -1,65 +1,52 @@
-// 糖豆人角色：SVG加载、移动、状态机
+function drawCharacterPattern(ctx, pattern, palette, pixelSize) {
+  pattern.forEach((row, y) => {
+    row.split('').forEach((cell, x) => {
+      if (cell === '.') return;
+      ctx.fillStyle = palette[cell] || '#ffffff';
+      ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+    });
+  });
+}
 
 const Character = {
   x: 0,
   y: 0,
-  width: 80,
-  height: 100,
-  state: 'IDLE',        // IDLE | MOVING | EATING
-  facingRight: true,
+  radius: 32,
+  state: 'IDLE',
   paused: false,
-  speed: 120,           // px/s
-
-  // IDLE 行为
-  idleDirection: { x: 0, y: 0 },
+  speed: 150,
+  directionAngle: 0,
+  targetAngle: 0,
+  mouthOpen: 0,
+  mouthSpeed: 6,
+  moveDir: { x: 0, y: 0 },
   idleTimer: 0,
-  idleInterval: 0,      // 2-4秒随机换方向
-  jumpTimer: 0,
-  jumpCooldown: 3,      // 偶尔跳跃
-
-  // 进食目标
+  idleInterval: 0,
   targetBall: null,
   eatingQueue: [],
-
-  // SVG 素材
-  normalImg: null,
-  eatingImg: null,
-  imagesLoaded: false,
-
-  mouthOpen: false,     // 张嘴状态
+  eyeDir: { x: 0, y: 0 },
 
   init() {
     this.x = GameLoop.width / 2;
-    this.y = GameLoop.height * 0.6;
-
-    this.loadImages();
+    this.y = GameLoop.height / 2;
     this.changeIdleDirection();
   },
 
-  loadImages() {
-    this.normalImg = new Image();
-    this.eatingImg = new Image();
-    let loaded = 0;
-    const onLoad = () => {
-      loaded++;
-      if (loaded === 2) this.imagesLoaded = true;
-    };
-    this.normalImg.onload = onLoad;
-    this.eatingImg.onload = onLoad;
-    this.normalImg.src = 'assets/sugar_runner.svg';
-    this.eatingImg.src = 'assets/sugar_runner_eating.svg';
-  },
-
   hitTest(mx, my) {
-    const cx = this.x;
-    const cy = this.y - this.height / 2 + 15;
-    const dx = mx - cx;
-    const dy = my - cy;
-    return (dx * dx) / (45 * 45) + (dy * dy) / (65 * 65) < 1;
+    const dx = mx - this.x;
+    const dy = my - this.y;
+    return (dx * dx + dy * dy) <= this.radius * this.radius * 1.5;
   },
 
   update(dt) {
     if (this.paused) return;
+
+    this.mouthOpen = 0.5 + 0.5 * Math.sin(Date.now() / 150);
+
+    let diff = this.targetAngle - this.directionAngle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    this.directionAngle += diff * Math.min(dt * 15, 1);
 
     switch (this.state) {
       case 'IDLE':
@@ -69,14 +56,12 @@ const Character = {
       case 'MOVING':
         this.updateMoving(dt);
         break;
-      case 'EATING':
-        // 由 AnimationManager 控制
+      default:
         break;
     }
 
-    // 边界约束
-    this.x = Math.max(40, Math.min(GameLoop.width - 40, this.x));
-    this.y = Math.max(60, Math.min(GameLoop.height - 20, this.y));
+    this.x = Math.max(this.radius, Math.min(GameLoop.width - this.radius, this.x));
+    this.y = Math.max(this.radius, Math.min(GameLoop.height - this.radius, this.y));
   },
 
   updateIdle(dt) {
@@ -84,35 +69,21 @@ const Character = {
     if (this.idleTimer >= this.idleInterval) {
       this.changeIdleDirection();
     }
-
-    // 移动
-    this.x += this.idleDirection.x * this.speed * 0.3 * dt;
-    this.y += this.idleDirection.y * this.speed * 0.3 * dt;
-
-    if (this.idleDirection.x !== 0) {
-      this.facingRight = this.idleDirection.x > 0;
-    }
-
-    // 偶尔跳跃
-    this.jumpTimer += dt;
-    if (this.jumpTimer > this.jumpCooldown && Math.random() < 0.01) {
-      this.jumpTimer = 0;
-      this.jumpCooldown = 2 + Math.random() * 3;
-    }
+    this.x += this.moveDir.x * this.speed * 0.3 * dt;
+    this.y += this.moveDir.y * this.speed * 0.3 * dt;
   },
 
   changeIdleDirection() {
     this.idleTimer = 0;
     this.idleInterval = 2 + Math.random() * 2;
     const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random();
-    this.idleDirection = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed * 0.5 };
+    this.moveDir = { x: Math.cos(angle), y: Math.sin(angle) };
+    this.targetAngle = angle;
   },
 
   checkForConfiguredBalls() {
     if (this.eatingQueue.length === 0) return;
-    const next = this.eatingQueue[0];
-    this.targetBall = next;
+    this.targetBall = this.eatingQueue[0];
     this.state = 'MOVING';
   },
 
@@ -124,25 +95,20 @@ const Character = {
       return;
     }
 
-    const tx = this.targetBall.x;
-    const ty = this.targetBall.y;
-    const dx = tx - this.x;
-    const dy = ty - this.y;
+    const dx = this.targetBall.x - this.x;
+    const dy = this.targetBall.y - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist < 60) {
-      // 到达，开始进食
+    if (dist < this.radius + this.targetBall.radius + 2) {
       this.state = 'EATING';
       AnimationManager.startEating(this, this.targetBall);
       return;
     }
 
-    // 平滑移动
-    const moveX = (dx / dist) * this.speed * dt;
-    const moveY = (dy / dist) * this.speed * dt;
-    this.x += moveX;
-    this.y += moveY;
-    this.facingRight = dx > 0;
+    this.targetAngle = Math.atan2(dy, dx);
+
+    this.x += (dx / dist) * this.speed * dt;
+    this.y += (dy / dist) * this.speed * dt;
   },
 
   addToQueue(ball) {
@@ -151,62 +117,75 @@ const Character = {
 
   onEatingDone() {
     this.eatingQueue.shift();
-    this.mouthOpen = false;
     this.state = 'IDLE';
     this.checkForConfiguredBalls();
   },
 
-  draw(ctx) {
-    if (!this.imagesLoaded) {
-      // 占位几何图形
-      this.drawPlaceholder(ctx);
-      return;
+  getCurrentPattern() {
+    const mouthWide = this.mouthOpen > 0.7;
+    if (mouthWide) {
+      return [
+        '..yyyyyy..',
+        '.yyyyyyyy.',
+        'yyyyyyyyyy',
+        'yyyyyy....',
+        'yyyy......',
+        'yyyyyy....',
+        'yyyyyyyyyy',
+        '.yyyyyyyy.',
+        '..yyyyyy..'
+      ];
     }
 
-    ctx.save();
-    ctx.translate(this.x, this.y - 15);
-
-    const img = (this.state === 'EATING' || this.mouthOpen) ? this.eatingImg : this.normalImg;
-    const scaleX = this.facingRight ? 1 : -1;
-
-    ctx.scale(scaleX, 1);
-    ctx.drawImage(img, -this.width / 2, -this.height, this.width, this.height);
-
-    ctx.restore();
+    return [
+      '..yyyyyy..',
+      '.yyyyyyyy.',
+      'yyyyyyyyyy',
+      'yyyyyyyy..',
+      'yyyyyy....',
+      'yyyyyyyy..',
+      'yyyyyyyyyy',
+      '.yyyyyyyy.',
+      '..yyyyyy..'
+    ];
   },
 
-  drawPlaceholder(ctx) {
+  draw(ctx) {
+    const pixelSize = 5;
+    const pattern = this.getCurrentPattern();
+    const width = pattern[0].length * pixelSize;
+    const height = pattern.length * pixelSize;
+
     ctx.save();
     ctx.translate(this.x, this.y);
+    ctx.rotate(this.directionAngle);
+    ctx.translate(-width / 2, -height / 2);
 
-    // 身体
-    ctx.fillStyle = '#FF6B6B';
-    ctx.beginPath();
-    ctx.ellipse(0, -20, 35, 45, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#E55A5A';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    drawCharacterPattern(
+      ctx,
+      pattern,
+      {
+        y: '#ffd93d'
+      },
+      pixelSize
+    );
 
-    // 腿
-    ctx.fillStyle = '#FF6B6B';
-    ctx.fillRect(-18, 15, 12, 12);
-    ctx.fillRect(6, 15, 12, 12);
+    ctx.fillStyle = '#fff4b3';
+    ctx.fillRect(pixelSize * 3, pixelSize * 1, pixelSize * 2, pixelSize);
+    ctx.fillRect(pixelSize * 2, pixelSize * 2, pixelSize * 2, pixelSize);
 
-    // 眼睛
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(-10, -25, 4, 0, Math.PI * 2);
-    ctx.arc(10, -25, 4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(pixelSize * 6, pixelSize * 2, pixelSize, pixelSize);
+    ctx.fillRect(pixelSize * 7, pixelSize * 2, pixelSize, pixelSize);
+    ctx.fillStyle = '#3ddcff';
+    ctx.fillRect(pixelSize * 7, pixelSize * 2, pixelSize, pixelSize);
 
     ctx.restore();
   },
 
   onResize() {
-    // 保持在屏幕范围内
-    this.x = Math.max(40, Math.min(GameLoop.width - 40, this.x));
-    this.y = Math.max(60, Math.min(GameLoop.height - 20, this.y));
+    this.x = Math.max(this.radius, Math.min(GameLoop.width - this.radius, this.x));
+    this.y = Math.max(this.radius, Math.min(GameLoop.height - this.radius, this.y));
   }
 };
 
